@@ -4,6 +4,18 @@ on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
+    inputs:
+      channel:
+        description: npm release channel
+        required: true
+        type: choice
+        options:
+          - beta
+
+concurrency:
+  group: npm-publish
+  cancel-in-progress: false
 
 permissions:
   contents: read
@@ -21,12 +33,36 @@ jobs:
           registry-url: https://registry.npmjs.org
           package-manager-cache: false
       - run: npm ci
-      - name: Verify tag matches package version
-        run: |
-          PACKAGE_VERSION="$(node -p "require('./package.json').version")"
-          test "${GITHUB_REF_NAME}" = "v${PACKAGE_VERSION}"
       - run: npm run format:check
       - run: npm run lint
       - run: npm test
       - run: npm run build
-      - run: npm publish --access public
+      - name: Prepare npm version and channel
+        id: release
+        shell: bash
+        run: |
+          PACKAGE_VERSION="$(node -p "require('./package.json').version")"
+          if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]]; then
+            test "${{ inputs.channel }}" = "beta"
+            if [[ "${PACKAGE_VERSION}" == *-* ]]; then
+              echo "package.json must contain a stable base version" >&2
+              exit 1
+            fi
+            PUBLISH_VERSION="${PACKAGE_VERSION}-beta.${GITHUB_RUN_NUMBER}"
+            npm version "${PUBLISH_VERSION}" --no-git-tag-version
+            echo "channel=beta" >> "${GITHUB_OUTPUT}"
+            echo "version=${PUBLISH_VERSION}" >> "${GITHUB_OUTPUT}"
+          else
+            test "${GITHUB_REF_NAME}" = "v${PACKAGE_VERSION}"
+            echo "channel=latest" >> "${GITHUB_OUTPUT}"
+            echo "version=${PACKAGE_VERSION}" >> "${GITHUB_OUTPUT}"
+          fi
+      - name: Publish beta
+        if: steps.release.outputs.channel == 'beta'
+        run: npm publish --access public --tag beta
+      - name: Publish stable
+        if: steps.release.outputs.channel == 'latest'
+        run: npm publish --access public --tag latest
+      - name: Summarize release
+        run: |
+          echo "Published homebridge-betterkey@${{ steps.release.outputs.version }} on the ${{ steps.release.outputs.channel }} channel." >> "${GITHUB_STEP_SUMMARY}"

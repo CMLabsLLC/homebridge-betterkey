@@ -65,3 +65,12 @@ workflow. Do not add a long-lived npm publish token to the repository.
 The tag must exactly match the version in `package.json` (`v0.1.0` for version
 `0.1.0`). The workflow validates formatting, lint, tests, and the build before
 requesting a short-lived OIDC publishing credential from npm.
+
+Maintainers can also run `release.yml` manually with the `beta` channel. The
+workflow derives an immutable prerelease version such as `0.1.0-beta.12` from
+the package's stable version and the GitHub run number, then publishes it under
+the npm `beta` dist-tag. It does not commit the generated prerelease version.
+
+The package must exist on npm before Trusted Publishing can be configured. For
+the one-time bootstrap only, publish `0.1.0-beta.0` manually with the
+maintainer's normal npm login and 2FA. Do not create an automation token.
