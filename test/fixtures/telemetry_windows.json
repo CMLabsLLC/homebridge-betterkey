@@ -1,0 +1,19 @@
+{
+  "vehicleId": "veh-forester-2023",
+  "capabilities": {
+    "windows": true
+  },
+  "signals": {
+    "windows": {
+      "value": {
+        "frontLeft": "closed",
+        "frontRight": "closed",
+        "rearLeft": "closed",
+        "rearRight": "closed"
+      },
+      "allClosed": true,
+      "oemUpdatedAt": "2026-07-26T14:22:00Z",
+      "retrievedAt": "2026-07-26T14:30:00Z"
+    }
+  }
+}

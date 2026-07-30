@@ -1,0 +1,43 @@
+{
+  "pluginAlias": "BetterKey",
+  "pluginType": "platform",
+  "singular": true,
+  "strictValidation": true,
+  "schema": {
+    "type": "object",
+    "required": ["name", "apiKey"],
+    "additionalProperties": false,
+    "properties": {
+      "name": {
+        "title": "Name",
+        "type": "string",
+        "default": "BetterKey"
+      },
+      "apiKey": {
+        "title": "BetterKey API Key",
+        "type": "string",
+        "minLength": 12,
+        "placeholder": "bk_…"
+      },
+      "pollIntervalMinutes": {
+        "title": "Poll Interval (minutes)",
+        "type": "integer",
+        "default": 15,
+        "minimum": 5,
+        "maximum": 60
+      },
+      "stalenessThresholdMinutes": {
+        "title": "Window Data Staleness Threshold (minutes)",
+        "type": "integer",
+        "default": 360,
+        "minimum": 15,
+        "maximum": 10080
+      },
+      "verboseLogging": {
+        "title": "Verbose Logging",
+        "type": "boolean",
+        "default": false
+      }
+    }
+  }
+}

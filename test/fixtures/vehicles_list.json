@@ -1,0 +1,18 @@
+{
+  "vehicles": [
+    {
+      "id": "veh-forester-2023",
+      "displayName": "Subaru Forester",
+      "make": "Subaru",
+      "model": "Forester",
+      "color": "SolidBlack"
+    },
+    {
+      "id": "veh-outback-2020",
+      "displayName": "Subaru Outback",
+      "make": "Subaru",
+      "model": "Outback",
+      "color": ""
+    }
+  ]
+}

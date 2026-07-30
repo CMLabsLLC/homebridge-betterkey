@@ -1,0 +1,57 @@
+{
+  "name": "homebridge-betterkey",
+  "displayName": "BetterKey",
+  "version": "0.1.0",
+  "description": "Read-only BetterKey vehicle telemetry for Homebridge.",
+  "license": "MIT",
+  "author": "CMLabs LLC",
+  "homepage": "https://github.com/CMLabsLLC/homebridge-betterkey#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/CMLabsLLC/homebridge-betterkey.git"
+  },
+  "bugs": {
+    "url": "https://github.com/CMLabsLLC/homebridge-betterkey/issues"
+  },
+  "keywords": [
+    "homebridge-plugin",
+    "homekit",
+    "betterkey",
+    "vehicle",
+    "windows",
+    "contact-sensor"
+  ],
+  "main": "dist/index.js",
+  "files": [
+    "dist",
+    "config.schema.json",
+    "LICENSE",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=20.0.0",
+    "homebridge": ">=1.6.0"
+  },
+  "scripts": {
+    "build": "rimraf dist && tsc",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "lint": "eslint . --max-warnings=0",
+    "test": "rimraf .test-dist && tsc -p tsconfig.test.json && jest --runInBand",
+    "test:coverage": "rimraf .test-dist && tsc -p tsconfig.test.json && jest --coverage --runInBand",
+    "prepublishOnly": "npm run format:check && npm run lint && npm test && npm run build"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/jest": "^30.0.0",
+    "@types/node": "^22.15.0",
+    "eslint": "^10.0.0",
+    "eslint-config-prettier": "^10.1.5",
+    "homebridge": "^1.11.4",
+    "jest": "^30.2.0",
+    "prettier": "^3.5.3",
+    "rimraf": "^6.0.1",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.59.2"
+  }
+}

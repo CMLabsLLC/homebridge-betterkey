@@ -1,0 +1,58 @@
+name: OEM compatibility observation
+description: Share observed window-telemetry behavior for a vehicle
+title: 'compat: '
+labels:
+  - compatibility
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Observations improve the compatibility notes but do not establish universal support.
+        Do not include a VIN, vehicle ID, location, API key, or account details.
+  - type: input
+    id: vehicle
+    attributes:
+      label: Model year, make, and model
+      placeholder: 2023 Subaru Forester
+    validations:
+      required: true
+  - type: input
+    id: region
+    attributes:
+      label: Country or region
+      placeholder: United States
+    validations:
+      required: true
+  - type: dropdown
+    id: availability
+    attributes:
+      label: Window telemetry availability
+      options:
+        - Available
+        - Unavailable
+        - Intermittent
+    validations:
+      required: true
+  - type: textarea
+    id: trigger
+    attributes:
+      label: What preceded an update?
+      description: For example, ignition activity or a connected-services app refresh.
+    validations:
+      required: true
+  - type: input
+    id: delay
+    attributes:
+      label: Approximate reporting delay
+      placeholder: About 10 minutes
+  - type: textarea
+    id: notes
+    attributes:
+      label: Additional observations
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Sensitive-data check
+      options:
+        - label: I did not include a VIN, vehicle ID, location, API key, or account details.
+          required: true
