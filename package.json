@@ -1,8 +1,8 @@
 {
   "name": "homebridge-betterkey",
   "displayName": "BetterKey",
-  "version": "0.1.0",
-  "description": "Read-only BetterKey vehicle telemetry for Homebridge.",
+  "version": "0.2.0",
+  "description": "BetterKey Parked at Home events for Homebridge and HomeKit automations.",
   "license": "MIT",
   "author": "CMLabs LLC",
   "homepage": "https://github.com/CMLabsLLC/homebridge-betterkey#readme",
@@ -18,8 +18,9 @@
     "homekit",
     "betterkey",
     "vehicle",
-    "windows",
-    "contact-sensor"
+    "parked-at-home",
+    "motion-sensor",
+    "automation"
   ],
   "main": "dist/index.js",
   "files": [
