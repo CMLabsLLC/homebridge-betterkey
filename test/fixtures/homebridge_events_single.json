@@ -1,0 +1,11 @@
+{
+  "events": [
+    {
+      "id": "3c8d1a2b-4c8e-4a9f-9b2d-1d5e0f4b7c9a",
+      "type": "parked_at_home",
+      "vehicleId": "veh-forester-2023",
+      "occurredAt": "2026-08-13T14:22:03Z",
+      "expiresAt": "2026-08-14T14:22:03Z"
+    }
+  ]
+}

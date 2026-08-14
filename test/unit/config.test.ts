@@ -1,7 +1,8 @@
 import { resolveConfig } from '../../src/config';
 import {
-  DEFAULT_POLL_INTERVAL_MINUTES,
-  DEFAULT_STALENESS_THRESHOLD_MINUTES,
+  DEFAULT_POLL_INTERVAL_SECONDS,
+  MAXIMUM_POLL_INTERVAL_SECONDS,
+  MINIMUM_POLL_INTERVAL_SECONDS,
   PRODUCTION_BASE_URL,
   resolveApiBaseUrl,
 } from '../../src/settings';
@@ -12,8 +13,7 @@ describe('resolveConfig', () => {
       resolveConfig({ name: 'BetterKey', platform: 'BetterKey', apiKey: 'bk_secret' }),
     ).toEqual({
       apiKey: 'bk_secret',
-      pollIntervalMinutes: DEFAULT_POLL_INTERVAL_MINUTES,
-      stalenessThresholdMinutes: DEFAULT_STALENESS_THRESHOLD_MINUTES,
+      pollIntervalSeconds: DEFAULT_POLL_INTERVAL_SECONDS,
       verboseLogging: false,
     });
   });
@@ -25,20 +25,29 @@ describe('resolveConfig', () => {
     ).toBeUndefined();
   });
 
-  it('clamps numeric configuration to supported bounds', () => {
+  it('clamps the poll interval to supported bounds', () => {
     expect(
       resolveConfig({
         name: 'BetterKey',
         platform: 'BetterKey',
         apiKey: 'bk_secret',
-        pollIntervalMinutes: 1,
-        stalenessThresholdMinutes: 20_000,
+        pollIntervalSeconds: 1,
         verboseLogging: true,
       }),
     ).toMatchObject({
-      pollIntervalMinutes: 5,
-      stalenessThresholdMinutes: 10_080,
+      pollIntervalSeconds: MINIMUM_POLL_INTERVAL_SECONDS,
       verboseLogging: true,
+    });
+
+    expect(
+      resolveConfig({
+        name: 'BetterKey',
+        platform: 'BetterKey',
+        apiKey: 'bk_secret',
+        pollIntervalSeconds: 9_999,
+      }),
+    ).toMatchObject({
+      pollIntervalSeconds: MAXIMUM_POLL_INTERVAL_SECONDS,
     });
   });
 });

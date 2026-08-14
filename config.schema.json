@@ -19,19 +19,12 @@
         "minLength": 12,
         "placeholder": "bk_…"
       },
-      "pollIntervalMinutes": {
-        "title": "Poll Interval (minutes)",
+      "pollIntervalSeconds": {
+        "title": "Poll Interval (seconds)",
         "type": "integer",
-        "default": 15,
-        "minimum": 5,
-        "maximum": 60
-      },
-      "stalenessThresholdMinutes": {
-        "title": "Window Data Staleness Threshold (minutes)",
-        "type": "integer",
-        "default": 360,
-        "minimum": 15,
-        "maximum": 10080
+        "default": 60,
+        "minimum": 30,
+        "maximum": 600
       },
       "verboseLogging": {
         "title": "Verbose Logging",

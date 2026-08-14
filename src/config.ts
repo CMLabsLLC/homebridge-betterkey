@@ -1,19 +1,21 @@
 import type { PlatformConfig } from 'homebridge';
 
-import { DEFAULT_POLL_INTERVAL_MINUTES, DEFAULT_STALENESS_THRESHOLD_MINUTES } from './settings';
+import {
+  DEFAULT_POLL_INTERVAL_SECONDS,
+  MAXIMUM_POLL_INTERVAL_SECONDS,
+  MINIMUM_POLL_INTERVAL_SECONDS,
+} from './settings';
 
 export interface BetterKeyPlatformConfig extends PlatformConfig {
   name: string;
   apiKey: string;
-  pollIntervalMinutes?: number;
-  stalenessThresholdMinutes?: number;
+  pollIntervalSeconds?: number;
   verboseLogging?: boolean;
 }
 
 export interface ResolvedConfig {
   apiKey: string;
-  pollIntervalMinutes: number;
-  stalenessThresholdMinutes: number;
+  pollIntervalSeconds: number;
   verboseLogging: boolean;
 }
 
@@ -25,17 +27,11 @@ export function resolveConfig(config: BetterKeyPlatformConfig): ResolvedConfig |
 
   return {
     apiKey,
-    pollIntervalMinutes: boundedInteger(
-      config.pollIntervalMinutes,
-      DEFAULT_POLL_INTERVAL_MINUTES,
-      5,
-      60,
-    ),
-    stalenessThresholdMinutes: boundedInteger(
-      config.stalenessThresholdMinutes,
-      DEFAULT_STALENESS_THRESHOLD_MINUTES,
-      15,
-      10_080,
+    pollIntervalSeconds: boundedInteger(
+      config.pollIntervalSeconds,
+      DEFAULT_POLL_INTERVAL_SECONDS,
+      MINIMUM_POLL_INTERVAL_SECONDS,
+      MAXIMUM_POLL_INTERVAL_SECONDS,
     ),
     verboseLogging: config.verboseLogging === true,
   };

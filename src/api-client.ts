@@ -1,13 +1,18 @@
-import type { VehicleTelemetry, VehiclesResponse } from './types/telemetry';
+import {
+  PARKED_AT_HOME_EVENT_TYPE,
+  type ParkedAtHomeEvent,
+  type ParkedAtHomeEventsResponse,
+  type VehiclesResponse,
+} from './types/api';
 
-export type TelemetryErrorKind =
+export type ApiErrorKind =
   'unauthorized' | 'rate_limited' | 'server' | 'http' | 'network' | 'invalid_response';
 
-export type TelemetryResult<T> =
+export type ApiResult<T> =
   | { ok: true; data: T }
   | {
       ok: false;
-      kind: TelemetryErrorKind;
+      kind: ApiErrorKind;
       message: string;
       status?: number;
       retryAfterSeconds?: number;
@@ -20,7 +25,7 @@ const DEFAULT_MAX_RETRIES = 3;
 const BASE_RETRY_DELAY_MILLISECONDS = 500;
 const MAX_RETRY_DELAY_MILLISECONDS = 30_000;
 
-export class TelemetryClient {
+export class BetterKeyApiClient {
   constructor(
     private readonly baseUrl: string,
     private readonly apiKey: string,
@@ -30,21 +35,18 @@ export class TelemetryClient {
     private readonly maxRetries: number = DEFAULT_MAX_RETRIES,
   ) {}
 
-  getVehicles(): Promise<TelemetryResult<VehiclesResponse>> {
+  getVehicles(): Promise<ApiResult<VehiclesResponse>> {
     return this.request('/v1/vehicles', isVehiclesResponse);
   }
 
-  getVehicleTelemetry(vehicleId: string): Promise<TelemetryResult<VehicleTelemetry>> {
-    return this.request(
-      `/v1/vehicles/${encodeURIComponent(vehicleId)}/telemetry`,
-      isVehicleTelemetry,
-    );
+  getParkedAtHomeEvents(): Promise<ApiResult<ParkedAtHomeEventsResponse>> {
+    return this.request('/v1/homebridge/events', isParkedAtHomeEventsResponse);
   }
 
   private async request<T>(
     path: string,
     validate: (value: unknown) => value is T,
-  ): Promise<TelemetryResult<T>> {
+  ): Promise<ApiResult<T>> {
     for (let attempt = 0; attempt <= this.maxRetries; attempt += 1) {
       let response: Response;
       try {
@@ -123,7 +125,7 @@ export class TelemetryClient {
           ok: false,
           kind: 'invalid_response',
           status: response.status,
-          message: 'BetterKey API response did not match the telemetry contract',
+          message: 'BetterKey API response did not match the expected contract',
         };
       }
 
@@ -176,33 +178,22 @@ function isVehiclesResponse(value: unknown): value is VehiclesResponse {
   );
 }
 
-function isVehicleTelemetry(value: unknown): value is VehicleTelemetry {
-  if (
-    !isRecord(value) ||
-    typeof value.vehicleId !== 'string' ||
-    !isRecord(value.capabilities) ||
-    typeof value.capabilities.windows !== 'boolean'
-  ) {
+function isParkedAtHomeEventsResponse(value: unknown): value is ParkedAtHomeEventsResponse {
+  if (!isRecord(value) || !Array.isArray(value.events)) {
     return false;
   }
+  return value.events.every(isParkedAtHomeEvent);
+}
 
-  if (!value.capabilities.windows) {
-    return value.signals === undefined;
-  }
-
-  if (!isRecord(value.signals) || !isRecord(value.signals.windows)) {
-    return false;
-  }
-
-  const windows = value.signals.windows;
-  const windowsValue = windows.value;
+function isParkedAtHomeEvent(value: unknown): value is ParkedAtHomeEvent {
   return (
-    isRecord(windowsValue) &&
-    ['frontLeft', 'frontRight', 'rearLeft', 'rearRight'].every((position) =>
-      ['open', 'closed', 'unknown'].includes(String(windowsValue[position])),
-    ) &&
-    typeof windows.allClosed === 'boolean' &&
-    typeof windows.oemUpdatedAt === 'string' &&
-    typeof windows.retrievedAt === 'string'
+    isRecord(value) &&
+    typeof value.id === 'string' &&
+    value.id.length > 0 &&
+    value.type === PARKED_AT_HOME_EVENT_TYPE &&
+    typeof value.vehicleId === 'string' &&
+    value.vehicleId.length > 0 &&
+    typeof value.occurredAt === 'string' &&
+    typeof value.expiresAt === 'string'
   );
 }

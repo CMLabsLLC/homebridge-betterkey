@@ -2,8 +2,9 @@ export const PLUGIN_NAME = 'homebridge-betterkey';
 export const PLATFORM_NAME = 'BetterKey';
 export const PRODUCTION_BASE_URL = 'https://betterkey.xyz';
 
-export const DEFAULT_POLL_INTERVAL_MINUTES = 15;
-export const DEFAULT_STALENESS_THRESHOLD_MINUTES = 6 * 60;
+export const DEFAULT_POLL_INTERVAL_SECONDS = 60;
+export const MINIMUM_POLL_INTERVAL_SECONDS = 30;
+export const MAXIMUM_POLL_INTERVAL_SECONDS = 600;
 
 export function resolveApiBaseUrl(environment: NodeJS.ProcessEnv = process.env): string {
   const override = environment.BETTERKEY_API_BASE_URL?.trim();

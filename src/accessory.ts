@@ -1,17 +1,25 @@
 import type { PlatformAccessory, Service } from 'homebridge';
 
-import { GENERAL_FAULT, renderState } from './freshness';
 import type { BetterKeyPlatform } from './platform';
-import type { Vehicle, VehicleTelemetry } from './types/telemetry';
+import type { ParkedAtHomeEvent, Vehicle } from './types/api';
 
-const WINDOWS_SERVICE_SUBTYPE = 'betterkey-windows';
-const LAST_REPORTED_SERVICE_SUBTYPE = 'betterkey-last-reported';
+const MOTION_SERVICE_SUBTYPE = 'betterkey-parked-at-home';
 
-export class BetterKeyVehicleAccessory {
-  private readonly windowsService: Service;
-  private readonly lastReportedService: Service;
-  private unsupportedWarningLogged = false;
-  private lastOemUpdatedAt?: Date;
+/** How long the motion sensor stays active per event. Chosen for HomeKit automation triggers. */
+export const PULSE_DURATION_MILLISECONDS = 30_000;
+
+interface StoredProcessedEvent {
+  id: string;
+  expiresAtMs: number;
+}
+
+/** Result of dispatching one event, exposed for tests and verbose logging. */
+export type EventOutcome = 'pulsed' | 'seen' | 'expired' | 'invalid_timestamp';
+
+export class ParkedAtHomeAccessory {
+  private readonly motionService: Service;
+  private readonly processed = new Map<string, number>();
+  private clearTimer?: ReturnType<typeof setTimeout>;
 
   constructor(
     private readonly platform: BetterKeyPlatform,
@@ -25,118 +33,105 @@ export class BetterKeyVehicleAccessory {
       .setCharacteristic(this.platform.Characteristic.Model, model)
       .setCharacteristic(this.platform.Characteristic.SerialNumber, vehicle.id);
 
-    const windowsName = `${vehicle.displayName} Windows`;
-    this.windowsService =
-      accessory.getServiceById(this.platform.Service.ContactSensor, WINDOWS_SERVICE_SUBTYPE) ??
-      accessory.addService(
-        this.platform.Service.ContactSensor,
-        windowsName,
-        WINDOWS_SERVICE_SUBTYPE,
-      );
-    this.windowsService
-      .setCharacteristic(this.platform.Characteristic.Name, windowsName)
-      .updateCharacteristic(this.platform.Characteristic.StatusFault, GENERAL_FAULT);
+    const serviceName = `${vehicle.displayName} Parked at Home`;
+    this.motionService =
+      accessory.getServiceById(this.platform.Service.MotionSensor, MOTION_SERVICE_SUBTYPE) ??
+      accessory.addService(this.platform.Service.MotionSensor, serviceName, MOTION_SERVICE_SUBTYPE);
+    this.motionService
+      .setCharacteristic(this.platform.Characteristic.Name, serviceName)
+      .updateCharacteristic(this.platform.Characteristic.MotionDetected, false);
 
-    const lastReportedName = `${vehicle.displayName} Last Reported`;
-    this.lastReportedService =
-      accessory.getServiceById(this.platform.Service.Battery, LAST_REPORTED_SERVICE_SUBTYPE) ??
-      accessory.addService(
-        this.platform.Service.Battery,
-        lastReportedName,
-        LAST_REPORTED_SERVICE_SUBTYPE,
-      );
-    this.lastReportedService
-      .setCharacteristic(this.platform.Characteristic.Name, lastReportedName)
-      .setCharacteristic(
-        this.platform.Characteristic.ChargingState,
-        this.platform.Characteristic.ChargingState.NOT_CHARGING,
-      )
-      .setCharacteristic(
-        this.platform.Characteristic.StatusLowBattery,
-        this.platform.Characteristic.StatusLowBattery.BATTERY_LEVEL_NORMAL,
-      )
-      .setCharacteristic(this.platform.Characteristic.BatteryLevel, 100);
-  }
-
-  update(telemetry: VehicleTelemetry, now = new Date()): void {
-    const windows = telemetry.signals?.windows;
-    if (!telemetry.capabilities.windows || !windows) {
-      this.windowsService.updateCharacteristic(
-        this.platform.Characteristic.StatusFault,
-        GENERAL_FAULT,
-      );
-      this.updateLastReported(now);
-      if (!this.unsupportedWarningLogged) {
-        this.platform.log.warn(
-          '%s does not currently provide compatible window telemetry.',
-          this.vehicle.displayName,
-        );
-        this.unsupportedWarningLogged = true;
+    const stored = accessory.context.processedEvents;
+    if (Array.isArray(stored)) {
+      for (const entry of stored as unknown[]) {
+        if (
+          entry !== null &&
+          typeof entry === 'object' &&
+          typeof (entry as StoredProcessedEvent).id === 'string' &&
+          Number.isFinite((entry as StoredProcessedEvent).expiresAtMs)
+        ) {
+          const { id, expiresAtMs } = entry as StoredProcessedEvent;
+          this.processed.set(id, expiresAtMs);
+        }
       }
-      return;
-    }
-
-    this.unsupportedWarningLogged = false;
-    const rendered = renderState(
-      windows.allClosed,
-      windows.oemUpdatedAt,
-      now,
-      this.platform.resolvedConfig.stalenessThresholdMinutes,
-    );
-    const parsedOemUpdatedAt = new Date(windows.oemUpdatedAt);
-    if (!Number.isNaN(parsedOemUpdatedAt.getTime())) {
-      this.lastOemUpdatedAt = parsedOemUpdatedAt;
-    }
-
-    if (rendered.hkValue !== null) {
-      this.windowsService.updateCharacteristic(
-        this.platform.Characteristic.ContactSensorState,
-        rendered.hkValue,
-      );
-    }
-    this.windowsService.updateCharacteristic(
-      this.platform.Characteristic.StatusFault,
-      rendered.statusFault,
-    );
-
-    // HomeKit battery level is limited to 0...100. This deliberately uses that widely
-    // supported surface to expose age in minutes, capped at 100.
-    this.lastReportedService.updateCharacteristic(
-      this.platform.Characteristic.BatteryLevel,
-      Math.min(100, rendered.ageMinutes ?? 100),
-    );
-
-    if (this.platform.resolvedConfig.verboseLogging) {
-      this.platform.log.debug(
-        '%s telemetry: oemUpdatedAt=%s retrievedAt=%s ageMinutes=%s renderedState=%s statusFault=%d',
-        this.vehicle.displayName,
-        windows.oemUpdatedAt,
-        windows.retrievedAt,
-        rendered.ageMinutes ?? 'unknown',
-        rendered.hkValue === null ? 'unknown' : rendered.hkValue === 0 ? 'closed' : 'open',
-        rendered.statusFault,
-      );
     }
   }
 
-  markUnavailable(message: string, now = new Date()): void {
-    this.windowsService.updateCharacteristic(
-      this.platform.Characteristic.StatusFault,
-      GENERAL_FAULT,
-    );
-    this.updateLastReported(now);
-    if (this.platform.resolvedConfig.verboseLogging) {
-      this.platform.log.debug('%s telemetry unavailable: %s', this.vehicle.displayName, message);
+  get vehicleId(): string {
+    return this.vehicle.id;
+  }
+
+  get displayName(): string {
+    return this.vehicle.displayName;
+  }
+
+  /**
+   * Dispatch one event from the poll response. New events pulse the sensor active for
+   * {@link PULSE_DURATION_MILLISECONDS}; already-processed events are ignored so a restart or
+   * a duplicate poll response cannot replay the same automation.
+   */
+  handleEvent(event: ParkedAtHomeEvent, now: Date = new Date()): EventOutcome {
+    this.pruneExpired(now);
+
+    if (this.processed.has(event.id)) {
+      return 'seen';
+    }
+
+    const expiresAtMs = Date.parse(event.expiresAt);
+    if (!Number.isFinite(expiresAtMs)) {
+      return 'invalid_timestamp';
+    }
+    if (expiresAtMs <= now.getTime()) {
+      return 'expired';
+    }
+
+    this.processed.set(event.id, expiresAtMs);
+    this.persist();
+    this.pulse();
+    return 'pulsed';
+  }
+
+  /** Cancel any pending motion-reset timer. Called on Homebridge shutdown. */
+  shutdown(): void {
+    if (this.clearTimer) {
+      clearTimeout(this.clearTimer);
+      this.clearTimer = undefined;
     }
   }
 
-  private updateLastReported(now: Date): void {
-    const ageMinutes = this.lastOemUpdatedAt
-      ? Math.max(0, Math.floor((now.getTime() - this.lastOemUpdatedAt.getTime()) / 60_000))
-      : 100;
-    this.lastReportedService.updateCharacteristic(
-      this.platform.Characteristic.BatteryLevel,
-      Math.min(100, ageMinutes),
-    );
+  private pulse(): void {
+    this.motionService.updateCharacteristic(this.platform.Characteristic.MotionDetected, true);
+    if (this.clearTimer) {
+      clearTimeout(this.clearTimer);
+    }
+    this.clearTimer = setTimeout(() => {
+      this.motionService.updateCharacteristic(this.platform.Characteristic.MotionDetected, false);
+      this.clearTimer = undefined;
+    }, PULSE_DURATION_MILLISECONDS);
+    if (typeof this.clearTimer === 'object' && this.clearTimer && 'unref' in this.clearTimer) {
+      (this.clearTimer as { unref: () => void }).unref();
+    }
+  }
+
+  private pruneExpired(now: Date): void {
+    const nowMs = now.getTime();
+    let changed = false;
+    for (const [id, expiresAtMs] of this.processed) {
+      if (expiresAtMs <= nowMs) {
+        this.processed.delete(id);
+        changed = true;
+      }
+    }
+    if (changed) {
+      this.persist();
+    }
+  }
+
+  private persist(): void {
+    const entries: StoredProcessedEvent[] = [];
+    for (const [id, expiresAtMs] of this.processed) {
+      entries.push({ id, expiresAtMs });
+    }
+    this.accessory.context.processedEvents = entries;
   }
 }

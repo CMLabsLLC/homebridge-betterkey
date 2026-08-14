@@ -7,11 +7,11 @@ import type {
   Service,
 } from 'homebridge';
 
-import { BetterKeyVehicleAccessory } from './accessory';
+import { type ApiResult, BetterKeyApiClient } from './api-client';
+import { ParkedAtHomeAccessory } from './accessory';
 import { type BetterKeyPlatformConfig, type ResolvedConfig, resolveConfig } from './config';
 import { PLATFORM_NAME, PLUGIN_NAME, resolveApiBaseUrl } from './settings';
-import { TelemetryClient, type TelemetryResult } from './telemetry-client';
-import type { Vehicle } from './types/telemetry';
+import type { ParkedAtHomeEvent } from './types/api';
 
 export class BetterKeyPlatform implements DynamicPlatformPlugin {
   public readonly Service: typeof Service;
@@ -19,9 +19,9 @@ export class BetterKeyPlatform implements DynamicPlatformPlugin {
   public readonly resolvedConfig: ResolvedConfig;
 
   private readonly cachedAccessories = new Map<string, PlatformAccessory>();
-  private readonly handlers = new Map<string, BetterKeyVehicleAccessory>();
-  private readonly client: TelemetryClient;
-  private pollTimer?: NodeJS.Timeout;
+  private readonly handlers = new Map<string, ParkedAtHomeAccessory>();
+  private readonly client: BetterKeyApiClient;
+  private pollTimer?: ReturnType<typeof setInterval>;
   private authErrorLogged = false;
 
   constructor(
@@ -37,11 +37,10 @@ export class BetterKeyPlatform implements DynamicPlatformPlugin {
       log.error('BetterKey is not configured: add an API key generated in BetterKey Settings.');
       this.resolvedConfig = {
         apiKey: '',
-        pollIntervalMinutes: 15,
-        stalenessThresholdMinutes: 360,
+        pollIntervalSeconds: 60,
         verboseLogging: false,
       };
-      this.client = new TelemetryClient(resolveApiBaseUrl(), '');
+      this.client = new BetterKeyApiClient(resolveApiBaseUrl(), '');
       return;
     }
 
@@ -54,10 +53,10 @@ export class BetterKeyPlatform implements DynamicPlatformPlugin {
         'BetterKey API origin override is invalid: %s',
         error instanceof Error ? error.message : 'unknown error',
       );
-      this.client = new TelemetryClient('https://invalid.invalid', resolved.apiKey);
+      this.client = new BetterKeyApiClient('https://invalid.invalid', resolved.apiKey);
       return;
     }
-    this.client = new TelemetryClient(baseUrl, resolved.apiKey);
+    this.client = new BetterKeyApiClient(baseUrl, resolved.apiKey);
 
     this.api.on('didFinishLaunching', () => {
       void this.discoverVehicles();
@@ -65,6 +64,10 @@ export class BetterKeyPlatform implements DynamicPlatformPlugin {
     this.api.on('shutdown', () => {
       if (this.pollTimer) {
         clearInterval(this.pollTimer);
+        this.pollTimer = undefined;
+      }
+      for (const handler of this.handlers.values()) {
+        handler.shutdown();
       }
     });
   }
@@ -89,12 +92,12 @@ export class BetterKeyPlatform implements DynamicPlatformPlugin {
         cached.context.vehicle = vehicle;
         cached.updateDisplayName(vehicle.displayName);
         this.api.updatePlatformAccessories([cached]);
-        this.handlers.set(vehicle.id, new BetterKeyVehicleAccessory(this, cached, vehicle));
+        this.handlers.set(vehicle.id, new ParkedAtHomeAccessory(this, cached, vehicle));
         this.log.info('Restored %s from the Homebridge cache.', vehicle.displayName);
       } else {
         const accessory = new this.api.platformAccessory(vehicle.displayName, uuid);
         accessory.context.vehicle = vehicle;
-        this.handlers.set(vehicle.id, new BetterKeyVehicleAccessory(this, accessory, vehicle));
+        this.handlers.set(vehicle.id, new ParkedAtHomeAccessory(this, accessory, vehicle));
         this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory]);
         this.log.info('Added %s.', vehicle.displayName);
       }
@@ -111,37 +114,54 @@ export class BetterKeyPlatform implements DynamicPlatformPlugin {
       this.api.unregisterPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, removed);
     }
 
-    await this.pollAllVehicles(result.data.vehicles);
+    await this.pollEvents();
     this.pollTimer = setInterval(
-      () => void this.pollAllVehicles(result.data.vehicles),
-      this.resolvedConfig.pollIntervalMinutes * 60_000,
+      () => void this.pollEvents(),
+      this.resolvedConfig.pollIntervalSeconds * 1_000,
     );
-  }
-
-  private async pollAllVehicles(vehicles: Vehicle[]): Promise<void> {
-    await Promise.all(vehicles.map((vehicle) => this.pollVehicle(vehicle)));
-  }
-
-  private async pollVehicle(vehicle: Vehicle): Promise<void> {
-    const result = await this.client.getVehicleTelemetry(vehicle.id);
-    const handler = this.handlers.get(vehicle.id);
-    if (!handler) {
-      return;
+    if (typeof this.pollTimer === 'object' && this.pollTimer && 'unref' in this.pollTimer) {
+      (this.pollTimer as { unref: () => void }).unref();
     }
+  }
 
+  private async pollEvents(): Promise<void> {
+    const result = await this.client.getParkedAtHomeEvents();
     if (!result.ok) {
-      handler.markUnavailable(result.message);
-      this.logClientError(`poll ${vehicle.displayName}`, result);
+      this.logClientError('poll Parked at Home events', result);
       return;
     }
 
     this.authErrorLogged = false;
-    handler.update(result.data);
+    this.dispatchEvents(result.data.events);
+  }
+
+  /** Exposed for tests. Routes a batch of events to their target accessory handlers. */
+  dispatchEvents(events: readonly ParkedAtHomeEvent[], now: Date = new Date()): void {
+    for (const event of events) {
+      const handler = this.handlers.get(event.vehicleId);
+      if (!handler) {
+        if (this.resolvedConfig.verboseLogging) {
+          this.log.debug('Ignoring Parked at Home event for unknown vehicle %s.', event.vehicleId);
+        }
+        continue;
+      }
+      const outcome = handler.handleEvent(event, now);
+      if (outcome === 'pulsed') {
+        this.log.info('%s parked at Home.', handler.displayName);
+      } else if (this.resolvedConfig.verboseLogging) {
+        this.log.debug(
+          'Skipped Parked at Home event id=%s for %s (%s).',
+          event.id,
+          handler.displayName,
+          outcome,
+        );
+      }
+    }
   }
 
   private logClientError(
     operation: string,
-    result: Exclude<TelemetryResult<unknown>, { ok: true }>,
+    result: Exclude<ApiResult<unknown>, { ok: true }>,
   ): void {
     if (result.kind === 'unauthorized') {
       if (!this.authErrorLogged) {
