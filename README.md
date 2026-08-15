@@ -1,20 +1,22 @@
 # Homebridge BetterKey
 
-Bridge BetterKey's privacy-preserving **Parked at Home** confirmations into HomeKit
-through Homebridge.
+Bridge BetterKey's **Home Arrival** events into HomeKit through Homebridge. Home
+Arrival is the BetterKey feature that publishes a privacy-preserving event when your
+car parks inside the Home area you drew in the app. Product overview lives at
+[betterkey.xyz/home-arrival](https://betterkey.xyz/home-arrival).
 
 Each BetterKey vehicle appears as a HomeKit **motion sensor** named _{Vehicle} Parked
 at Home_. Whenever BetterKey confirms that the vehicle parked inside your device-local
-Home geofence, the sensor pulses active for 30 seconds so an Apple Home automation can
+Home area, the sensor pulses active for 30 seconds so an Apple Home automation can
 run. It is not a continuous presence sensor, and it never reports an away-from-home
 state.
 
 > [!IMPORTANT]
-> BetterKey compares the confirmed park to your Home geofence entirely on your iPhone.
-> Your Home coordinate, the confirmed park coordinate, and the geofence radius never
-> leave the device. Only a short-lived `parked_at_home` event (id, vehicle, timestamp)
-> is sent to the BetterKey service for this plugin to poll. Confirmed events are
-> retained for 24 hours and then deleted.
+> BetterKey compares the confirmed park to your Home area entirely on your iPhone.
+> Your Home coordinate, the confirmed park coordinate, and the radius never leave the
+> device. Only a short-lived `parked_at_home` event (id, vehicle, timestamp) is sent
+> to the BetterKey service for this plugin to poll. Confirmed events are retained for
+> 24 hours and then deleted.
 
 ## Requirements
 
@@ -22,7 +24,8 @@ state.
 - Node.js 20 or newer
 - An active BetterKey subscription
 - A BetterKey API key
-- iOS BetterKey with a configured Home geofence (Settings → Homebridge & API access)
+- iOS BetterKey with Home Arrival turned on and a Home area configured
+  (Settings → Features → Smart Home → Home Arrival)
 
 ## Installation
 
@@ -34,12 +37,15 @@ npm install -g homebridge-betterkey
 
 You can also install it from the Homebridge UI by searching for **BetterKey**.
 
-## Create an API key and set your Home
+## Turn on Home Arrival and create an API key
 
-In the BetterKey app, open **Settings → Homebridge & API access**:
+In the BetterKey app:
 
-1. Generate an API key and copy the full `bk_…` secret. It is shown only once.
-2. Tap **Use Current Location as Home** and confirm the radius (default 150 m).
+1. Open **Settings → Features → Smart Home → Home Arrival** and turn it on. Tap
+   **Set your home area** to open the map, drop the pin on your parking spot, and
+   confirm the radius (default 150 m).
+2. Switch to the **Account** tab, open **Tools → API Access**, tap **Add API key**,
+   and copy the full `bk_…` secret. It is shown only once.
 
 Treat the API key like a password. Homebridge stores it in its local configuration.
 If it is exposed, revoke it in BetterKey and generate a replacement.
@@ -61,7 +67,7 @@ this:
 
 | Setting               |  Default | Description                                                      |
 | --------------------- | -------: | ---------------------------------------------------------------- |
-| `apiKey`              | required | API key generated in BetterKey Settings.                         |
+| `apiKey`              | required | API key from BetterKey **Account → Tools → API Access**.         |
 | `pollIntervalSeconds` |     `60` | How often to check for new events. Allowed range: 30–600 s.      |
 | `verboseLogging`      |  `false` | Logs event ids and dispatch outcomes. API keys are never logged. |
 
@@ -101,15 +107,16 @@ access on iOS and that background app refresh is enabled.
 
 ### API key invalid or revoked
 
-Generate a replacement in BetterKey Settings and update the Homebridge configuration.
-Also confirm your BetterKey subscription is active.
+Generate a replacement under **Account → Tools → API Access** in BetterKey and update
+the Homebridge configuration. Also confirm your BetterKey subscription is active.
 
 ### The motion sensor never triggers
 
 Confirm all of the following:
 
 1. Your BetterKey subscription is active and the API key has not been revoked.
-2. You configured a Home geofence in the BetterKey app.
+2. Home Arrival is on in **Settings → Features → Smart Home → Home Arrival** and a
+   Home area has been set on the map.
 3. The vehicle is currently reporting successful park confirmations in the BetterKey
    app's Park Location screen.
 4. When you last drove home, BetterKey's "parked" confirmation actually landed on
@@ -148,7 +155,7 @@ compatibility observations.
   Parked at Home event to an API-key holder. No coordinate is ever sent over this
   channel.
 - Events expire and become unreadable 24 hours after they occur.
-- Revoke an API key at any time from BetterKey Settings.
+- Revoke an API key at any time from **Account → Tools → API Access** in BetterKey.
 
 ## License
 
