@@ -29,13 +29,12 @@ state.
 
 ## Installation
 
-When the package is available on npm:
+Install from the Homebridge UI by searching for **BetterKey**, or from the command
+line:
 
 ```bash
 npm install -g homebridge-betterkey
 ```
-
-You can also install it from the Homebridge UI by searching for **BetterKey**.
 
 ## Turn on Home Arrival and create an API key
 
