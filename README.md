@@ -25,7 +25,7 @@ state.
 - An active BetterKey subscription
 - A BetterKey API key
 - iOS BetterKey with Home Arrival turned on and a Home area configured
-  (Settings → Features → Smart Home → Home Arrival)
+  (Features → Smart Home → Home Arrival)
 
 ## Installation
 
@@ -40,7 +40,7 @@ npm install -g homebridge-betterkey
 
 In the BetterKey app:
 
-1. Open **Settings → Features → Smart Home → Home Arrival** and turn it on. Tap
+1. Open **Features → Smart Home → Home Arrival** and turn it on. Tap
    **Set your home area** to open the map, drop the pin on your parking spot, and
    confirm the radius (default 150 m).
 2. Switch to the **Account** tab, open **Tools → API Access**, tap **Add API key**,
@@ -114,7 +114,7 @@ the Homebridge configuration. Also confirm your BetterKey subscription is active
 Confirm all of the following:
 
 1. Your BetterKey subscription is active and the API key has not been revoked.
-2. Home Arrival is on in **Settings → Features → Smart Home → Home Arrival** and a
+2. Home Arrival is on in **Features → Smart Home → Home Arrival** and a
    Home area has been set on the map.
 3. The vehicle is currently reporting successful park confirmations in the BetterKey
    app's Park Location screen.
