@@ -7,9 +7,9 @@ car parks inside the Home area you drew in the app. Product overview lives at
 
 Each BetterKey vehicle appears as a HomeKit **motion sensor** named _{Vehicle} Parked
 at Home_. Whenever BetterKey confirms that the vehicle parked inside your device-local
-Home area, the sensor pulses active for 30 seconds so an Apple Home automation can
-run. It is not a continuous presence sensor, and it never reports an away-from-home
-state.
+Home area, the sensor flips to _motion detected_ for 30 seconds and then back to
+_no motion_, so an Apple Home automation can run. It is not a continuous presence
+sensor, and it never reports an away-from-home state.
 
 > [!IMPORTANT]
 > BetterKey compares the confirmed park to your Home area entirely on your iPhone.
@@ -76,9 +76,9 @@ The service endpoint is selected by BetterKey and is not configurable.
 
 Each BetterKey vehicle becomes one Homebridge accessory with a single service:
 
-- **{Vehicle} Parked at Home** — a motion sensor. It pulses active (motion detected)
-  for 30 seconds when BetterKey confirms a new Home park for that vehicle, then
-  returns to inactive.
+- **{Vehicle} Parked at Home** — a motion sensor. When BetterKey confirms a new Home
+  park for that vehicle, it flips to _motion detected_ for 30 seconds and then back
+  to _no motion_.
 
 Use it as an Apple Home automation trigger: for example, _When Forester Parked at
 Home detects motion after sunset, turn on the driveway lights._
@@ -97,7 +97,7 @@ Home detects motion after sunset, turn on the driveway lights._
 BetterKey confirms parks by observing successful park detections on your iPhone. If
 the OS suspends the app, denies location, or throttles background work, a specific
 park at Home may be missed and the event may never fire. Design HomeKit automations
-so a missed pulse is inconvenient rather than unsafe.
+so a missed trigger is inconvenient rather than unsafe.
 
 If you notice a pattern of missed events, check that BetterKey has **Always** location
 access on iOS and that background app refresh is enabled.
