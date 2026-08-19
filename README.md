@@ -26,6 +26,11 @@ sensor, and it never reports an away-from-home state.
 - A BetterKey API key
 - iOS BetterKey with Home Arrival turned on and a Home area configured
   (Features → Smart Home → Home Arrival)
+- Active connected services on the vehicle through the manufacturer's own account
+  and app (Subaru Starlink, HondaLink, Bluelink, FordPass, and so on). BetterKey
+  reads arrival events through that layer, so it has to be active. Most brands
+  include a multi-year trial with a new vehicle and move to a paid tier afterwards;
+  check your OEM app if you are not sure whether yours is still current.
 
 ## Installation
 
